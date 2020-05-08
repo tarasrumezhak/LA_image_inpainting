@@ -5,72 +5,76 @@ import scipy
 
 
 def create_kernel_derivatives():
-    # Kernels
-    k_fi = scipy.zeros((3, 3))
-    k_fi[1, 1] = -1
-    k_fi[2, 1] = 1
-    k_fj = scipy.zeros((3, 3))
-    k_fj[1, 1] = -1
-    k_fj[1, 2] = 1
-
-    # backwards i,j
-    k_bi = scipy.zeros((3, 3))
-    k_bi[1, 1] = 1
-    k_bi[0, 1] = -1
-    k_bj = scipy.zeros((3, 3))
-    k_bj[1, 1] = 1
-    k_bj[1, 0] = -1
 
     # centred i,j
-    k_ci = scipy.zeros((3, 3))
-    k_bi[0, 1] = -0.5
-    k_bi[2, 1] = 0.5
-    k_cj = scipy.zeros((3, 3))
-    k_cj[1, 2] = 0.5
-    k_cj[1, 0] = -0.5
-    return k_fi, k_fj, k_bi, k_bj, k_ci, k_cj
+    k_a_i = scipy.zeros((3, 3))
+    k_b_i[0, 1] = -0.5
+    k_b_i[2, 1] = 0.5
+    k_c_j = scipy.zeros((3, 3))
+    k_c_j[1, 2] = 0.5
+    k_c_j[1, 0] = -0.5
+
+    # backwards i,j
+    k_b_i = scipy.zeros((3, 3))
+    k_b_i[1, 1] = 1
+    k_b_i[0, 1] = -1
+    k_b_j = scipy.zeros((3, 3))
+    k_b_j[1, 1] = 1
+    k_b_j[1, 0] = -1
+
+    # Kernels
+    k_a_i = scipy.zeros((3, 3))
+    k_a_i[1, 1] = -1
+    k_a_i[2, 1] = 1
+    k_a_j = scipy.zeros((3, 3))
+    k_a_j[1, 1] = -1
+    k_a_j[1, 2] = 1
+
+    return k_a_i, k_a_j, k_b_i, k_b_j, k_a_i, k_c_j
 
 
-def amle_inpainting(input_m, mask, fidelity, tolerance, max_iter, dt):
+def amle_inpainting(input_m, mask, fidelity, tolerance, max_iter, d_t):
     if input_m.dim == 3:
         M, N, C = input_m.shape
     else:
         M, N = input_m.shape
         C = 1
     # Derivatives Kernels
-    k_fi, k_fj, k_bi, k_bj, k_ci, k_cj = create_kernel_derivatives()
+    k_a_i, k_a_j, k_b_i, k_b_j, k_c_i, k_c_j = create_kernel_derivatives()
 
-    u = input_m.copy()
-    v = scipy.zeros((M, N, 2))
+    input_copy = input_m.copy()
+    vec = scipy.zeros((M, N, 2))
 
     for c_iter in range(0, C):
         for iteration in range(0, max_iter):
-            ux = cv.filter2D(u[:, :, c_iter], -1, k_fi)
-            uy = cv.filter2D(u[:, :, c_iter], -1, k_fj)
+            input_copy_x = cv.filter2D(input_copy[:, :, c_iter], -1, k_a_i)
+            input_copy_y = cv.filter2D(input_copy[:, :, c_iter], -1, k_a_j)
 
-            uxx = cv.filter2D(ux, -1, k_bi)
-            uxy = cv.filter2D(ux, -1, k_bj)
-            uyx = cv.filter2D(uy, -1, k_bi)
-            uyy = cv.filter2D(uy, -1, k_bj)
+            input_copy_xx = cv.filter2D(input_copy_x, -1, k_b_i)
+            input_copy_xy = cv.filter2D(input_copy_x, -1, k_b_j)
+            input_copy_yx = cv.filter2D(input_copy_y, -1, k_b_i)
+            input_copy_yy = cv.filter2D(input_copy_y, -1, k_b_j)
 
-            v[:, :, 0] = cv.filter2D(u[:, :, c_iter], -1, k_ci)
-            v[:, :, 1] = cv.filter2D(u[:, :, c_iter], -1, k_cj)
+            vec[:, :, 0] = cv.filter2D(input_copy[:, :, c_iter], -1, k_c_i)
+            vec[:, :, 1] = cv.filter2D(input_copy[:, :, c_iter], -1, k_c_j)
 
-            unew = u[:, :, c_iter] + dt * (uxx * v[:, :, 0] ** 2 + uyy * v[:, :, 1] ** 2 + (uxy + uyx) * (
-                    v[:, :, 0] * v[:, :, 1]) + fidelity * mask[:, :, c_iter] * (
-                                                       input_m[:, :, c_iter] - u[:, :, c_iter]))
+            new_input_copy = input_copy[:, :, c_iter] + d_t * (
+                input_copy_xx * vec[:, :, 0]**2 + input_copy_yy * vec[:, :, 1]**2 + (input_copy_xy + input_copy_yx) *
+                (vec[:, :, 0] * vec[:, :, 1]) + fidelity * mask[:, :, c_iter] *
+                (input_m[:, :, c_iter] - input_copy[:, :, c_iter]))
 
-            diff_u = np.linalg.norm(unew.reshape(M * N, 1) - u[:, :, c_iter].reshape(M * N, 1), 2) / np.linalg.norm(
-                unew.reshape(M * N, 1), 2)
+            diff_input = np.linalg.norm(
+                new_input_copy.reshape(M * N, 1) - input_copy[:, :, c_iter].reshape(M * N, 1),
+                2) / np.linalg.norm(new_input_copy.reshape(M * N, 1), 2)
 
-            u[:, :, c_iter] = unew
+            input_copy[:, :, c_iter] = new_input_copy
 
-            if diff_u < tolerance:
+            if diff_input < tolerance:
                 break
 
     if C == 1:
-        mpimage.imsave("outuput_ample.png", u[:, :, 0], cmap="gray")
+        mpimage.imsave("outuput_ample.png", input_copy[:, :, 0], cmap="gray")
     elif C == 3:
-        mpimage.imsave("outuput_ample.png", u)
+        mpimage.imsave("outuput_ample.png", input_copy)
 
-    return u
+    return input_copy
