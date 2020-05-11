@@ -73,8 +73,8 @@ def amle_inpainting(input_m, mask, fidelity, tolerance, max_iter, d_t):
                 break
 
     if C == 1:
-        mpimage.imsave("outuput_ample.png", u[:, :, 0], cmap="gray")
+        mpimage.imsave("outuput_amle.png", u[:, :, 0], cmap="gray")
     elif C == 3:
-        mpimage.imsave("outuput_ample.png", u)
+        mpimage.imsave("outuput_amle.png", u)
 
     return u
