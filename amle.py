@@ -59,14 +59,17 @@ def amle_inpainting(input_m, mask, fidelity, tolerance, max_iter, d_t):
             vec[:, :, 1] = cv.filter2D(u[:, :, c_iter], -1, k_c_j)
 
             new_u = u[:, :, c_iter] + d_t * (
-                u_xx * vec[:, :, 0]**2 + u_yy * vec[:, :, 1]**2 +
-                (u_xy + u_yx) *
-                (vec[:, :, 0] * vec[:, :, 1]) + fidelity * mask[:, :, c_iter] *
-                (input_m[:, :, c_iter] - u[:, :, c_iter]))
+                u_xx * vec[:, :, 0] ** 2
+                + u_yy * vec[:, :, 1] ** 2
+                + (u_xy + u_yx) * (vec[:, :, 0] * vec[:, :, 1])
+                + fidelity
+                * mask[:, :, c_iter]
+                * (input_m[:, :, c_iter] - u[:, :, c_iter])
+            )
 
             diff_input = np.linalg.norm(
-                new_u.reshape(M * N, 1) - u[:, :, c_iter].reshape(M * N, 1),
-                2) / np.linalg.norm(new_u.reshape(M * N, 1), 2)
+                new_u.reshape(M * N, 1) - u[:, :, c_iter].reshape(M * N, 1), 2
+            ) / np.linalg.norm(new_u.reshape(M * N, 1), 2)
 
             u[:, :, c_iter] = new_u
 
