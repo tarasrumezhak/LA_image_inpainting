@@ -6,13 +6,13 @@ import scipy
 
 def create_kernel_derivatives():
 
-    # centred i,j
+    # Kernels
     k_a_i = scipy.zeros((3, 3))
-    k_b_i[0, 1] = -0.5
-    k_b_i[2, 1] = 0.5
-    k_c_j = scipy.zeros((3, 3))
-    k_c_j[1, 2] = 0.5
-    k_c_j[1, 0] = -0.5
+    k_a_i[1, 1] = -1
+    k_a_i[2, 1] = 1
+    k_a_j = scipy.zeros((3, 3))
+    k_a_j[1, 1] = -1
+    k_a_j[1, 2] = 1
 
     # backwards i,j
     k_b_i = scipy.zeros((3, 3))
@@ -22,13 +22,13 @@ def create_kernel_derivatives():
     k_b_j[1, 1] = 1
     k_b_j[1, 0] = -1
 
-    # Kernels
+    # centred i,j
     k_a_i = scipy.zeros((3, 3))
-    k_a_i[1, 1] = -1
-    k_a_i[2, 1] = 1
-    k_a_j = scipy.zeros((3, 3))
-    k_a_j[1, 1] = -1
-    k_a_j[1, 2] = 1
+    k_b_i[0, 1] = -0.5
+    k_b_i[2, 1] = 0.5
+    k_c_j = scipy.zeros((3, 3))
+    k_c_j[1, 2] = 0.5
+    k_c_j[1, 0] = -0.5
 
     return k_a_i, k_a_j, k_b_i, k_b_j, k_a_i, k_c_j
 
@@ -59,7 +59,8 @@ def amle_inpainting(input_m, mask, fidelity, tolerance, max_iter, d_t):
             vec[:, :, 1] = cv.filter2D(u[:, :, c_iter], -1, k_c_j)
 
             new_u = u[:, :, c_iter] + d_t * (
-                u_xx * vec[:, :, 0]**2 + u_yy * vec[:, :, 1]**2 + (u_xy + u_yx) *
+                u_xx * vec[:, :, 0]**2 + u_yy * vec[:, :, 1]**2 +
+                (u_xy + u_yx) *
                 (vec[:, :, 0] * vec[:, :, 1]) + fidelity * mask[:, :, c_iter] *
                 (input_m[:, :, c_iter] - u[:, :, c_iter]))
 
