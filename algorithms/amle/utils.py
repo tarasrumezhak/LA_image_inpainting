@@ -1,11 +1,8 @@
 from matplotlib import image as mpimage
-import scipy
 import numpy as np
-
+import scipy
 
 def create_image_and_mask(imagefilename, maskfilename):
-
-    # import a clean input to be corrupted with the mask
     input_matrix = mpimage.imread(imagefilename)
 
     if input_matrix.ndim == 3:
@@ -19,7 +16,7 @@ def create_image_and_mask(imagefilename, maskfilename):
     # mask = 0 missing domain
     mask = np.float64((mpimage.imread(maskfilename) == 1))
 
-    if (input_matrix.ndim == 3) & (mask.ndim < 3):
+    if (input_matrix.ndim == 3) and (mask.ndim < 3):
         mask = np.repeat(mask[:, :, np.newaxis], C, axis=2)
 
     if C == 1:
@@ -31,4 +28,3 @@ def create_image_and_mask(imagefilename, maskfilename):
     u = mask * input_matrix + (1 - mask) * noise
 
     return (u, mask)
-
