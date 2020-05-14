@@ -5,7 +5,6 @@ import numpy as np
 from utils import create_image_and_mask
 
 
-
 def create_kernel_derivatives():
 
     # forward i,j
@@ -63,7 +62,7 @@ def amle_inpainting(input_matrix, mask_matrix, fidelity, tolerance, maxiter, dt)
     vec = np.zeros((M, N, 2))
 
     for c in range(0, C):
-        for _ in range(0, maxiter):
+        for iteration in range(0, maxiter):
 
             u_x = cv.filter2D(u[:, :, c], -1, kernel_forward_i)
             u_y = cv.filter2D(u[:, :, c], -1, kernel_forward_j)
@@ -92,23 +91,25 @@ def amle_inpainting(input_matrix, mask_matrix, fidelity, tolerance, maxiter, dt)
             ) / np.linalg.norm(u_new.reshape(M * N, 1), 2)
 
             u[:, :, c] = u_new
-
+            print(f"{diff_u} on iteration {iteration}")
             if diff_u < tolerance:
                 break
 
     if C == 1:
-        mpimage.imsave("./amle_output.png", u[:, :, 0], cmap="gray")
+        mpimage.imsave(
+            "./algorithms/amle/results/amle_output.png", u[:, :, 0], cmap="gray"
+        )
     elif C == 3:
-        mpimage.imsave("./amle_output.png", u)
+        mpimage.imsave("./algorithms/amle/results/amle_output.png", u)
 
     return u
 
 
 def main():
     fidelity = 10 ^ 2
-    tolrance = 1e-8
-    max_iterations = 100000
-    d_t = 0.01
+    tolrance = 1e-9
+    max_iterations = 700000
+    d_t = 0.0001
     cleanfilename = "./dataset/amle_clean.png"
     maskfilename = "./dataset/amle_mask.png"
     input_image, mask = create_image_and_mask(cleanfilename, maskfilename)
