@@ -1,42 +1,48 @@
-import sys
+from __future__ import division
 import cv2 as cv
 import matplotlib.image as mpimage
 import numpy as np
-from PIL import Image
 from utils import create_image_and_mask
-import scipy
+
 
 
 def create_kernel_derivatives():
 
-    # Kernels
-    k_a_i = np.zeros((3, 3))
-    k_a_i[1, 1] = -1
-    k_a_i[2, 1] = 1
-    k_a_j = np.zeros((3, 3))
-    k_a_j[1, 1] = -1
-    k_a_j[1, 2] = 1
+    # forward i,j
+    kernel_forward_i = np.zeros((3, 3))
+    kernel_forward_i[1, 1] = -1
+    kernel_forward_i[2, 1] = 1
+    kernel_forward_j = np.zeros((3, 3))
+    kernel_forward_j[1, 1] = -1
+    kernel_forward_j[1, 2] = 1
 
-    # backwards i,j
-    k_b_i = np.zeros((3, 3))
-    k_b_i[1, 1] = 1
-    k_b_i[0, 1] = -1
-    k_b_j = np.zeros((3, 3))
-    k_b_j[1, 1] = 1
-    k_b_j[1, 0] = -1
+    # backward i,j
+    kernel_backwrds_i = np.zeros((3, 3))
+    kernel_backwrds_i[1, 1] = 1
+    kernel_backwrds_i[0, 1] = -1
+    kernel_backwards_j = np.zeros((3, 3))
+    kernel_backwards_j[1, 1] = 1
+    kernel_backwards_j[1, 0] = -1
 
     # centred i,j
-    k_a_i = np.zeros((3, 3))
-    k_b_i[0, 1] = -0.5
-    k_b_i[2, 1] = 0.5
-    k_c_j = np.zeros((3, 3))
-    k_c_j[1, 2] = 0.5
-    k_c_j[1, 0] = -0.5
+    kernel_centred_i = np.zeros((3, 3))
+    kernel_centred_i[0, 1] = -0.5
+    kernel_centred_i[2, 1] = 0.5
+    kernel_cetnred_j = np.zeros((3, 3))
+    kernel_cetnred_j[1, 2] = 0.5
+    kernel_cetnred_j[1, 0] = -0.5
 
-    return k_a_i, k_a_j, k_b_i, k_b_j, k_a_i, k_c_j
+    return [
+        kernel_forward_i,
+        kernel_forward_j,
+        kernel_backwrds_i,
+        kernel_backwards_j,
+        kernel_centred_i,
+        kernel_cetnred_j,
+    ]
 
 
-def amle(input_matrix, mask_matrix, fidelity, tol, maxiter, dt):
+def amle_inpainting(input_matrix, mask_matrix, fidelity, tolerance, maxiter, dt):
 
     if input_matrix.ndim == 3:
         M, N, C = input_matrix.shape
@@ -44,44 +50,50 @@ def amle(input_matrix, mask_matrix, fidelity, tol, maxiter, dt):
         M, N = input_matrix.shape
         C = 1
 
-    Kfi, Kfj, Kbi, Kbj, Kci, Kcj = create_kernel_derivatives()
+    (
+        kernel_forward_i,
+        kernel_forward_j,
+        kernel_backwards_i,
+        kernel_backwards_j,
+        kernel_centred_i,
+        kernel_centred_j,
+    ) = create_kernel_derivatives()
 
     u = input_matrix.copy()
-    v = np.zeros((M, N, 2))
+    vec = np.zeros((M, N, 2))
 
     for c in range(0, C):
+        for _ in range(0, maxiter):
 
-        for iter in range(0, maxiter):
+            u_x = cv.filter2D(u[:, :, c], -1, kernel_forward_i)
+            u_y = cv.filter2D(u[:, :, c], -1, kernel_forward_j)
 
-            ux = cv.filter2D(u[:, :, c], -1, Kfi)
-            uy = cv.filter2D(u[:, :, c], -1, Kfj)
+            u_xx = cv.filter2D(u_x, -1, kernel_backwards_i)
+            u_xy = cv.filter2D(u_x, -1, kernel_backwards_j)
+            u_yx = cv.filter2D(u_y, -1, kernel_backwards_i)
+            u_yy = cv.filter2D(u_y, -1, kernel_backwards_j)
 
-            uxx = cv.filter2D(ux, -1, Kbi)
-            uxy = cv.filter2D(ux, -1, Kbj)
-            uyx = cv.filter2D(uy, -1, Kbi)
-            uyy = cv.filter2D(uy, -1, Kbj)
+            vec[:, :, 0] = cv.filter2D(u[:, :, c], -1, kernel_centred_i)
+            vec[:, :, 1] = cv.filter2D(u[:, :, c], -1, kernel_centred_j)
 
-            v[:, :, 0] = cv.filter2D(u[:, :, c], -1, Kci)
-            v[:, :, 1] = cv.filter2D(u[:, :, c], -1, Kcj)
+            dennormal = np.lib.scimath.sqrt(np.sum(vec ** 2, axis=2) + 1e-15)
+            vec[:, :, 0] = vec[:, :, 0] / dennormal
+            vec[:, :, 1] = vec[:, :, 1] / dennormal
 
-            dennormal = scipy.sqrt(scipy.sum(v ** 2, axis=2) + 1e-15)
-            v[:, :, 0] = v[:, :, 0] / dennormal
-            v[:, :, 1] = v[:, :, 1] / dennormal
-
-            unew = u[:, :, c] + dt * (
-                uxx * v[:, :, 0] ** 2
-                + uyy * v[:, :, 1] ** 2
-                + (uxy + uyx) * (v[:, :, 0] * v[:, :, 1])
+            u_new = u[:, :, c] + dt * (
+                u_xx * vec[:, :, 0] ** 2
+                + u_yy * vec[:, :, 1] ** 2
+                + (u_xy + u_yx) * (vec[:, :, 0] * vec[:, :, 1])
                 + fidelity * mask_matrix[:, :, c] * (input_matrix[:, :, c] - u[:, :, c])
             )
 
             diff_u = np.linalg.norm(
-                unew.reshape(M * N, 1) - u[:, :, c].reshape(M * N, 1), 2
-            ) / np.linalg.norm(unew.reshape(M * N, 1), 2)
+                u_new.reshape(M * N, 1) - u[:, :, c].reshape(M * N, 1), 2
+            ) / np.linalg.norm(u_new.reshape(M * N, 1), 2)
 
-            u[:, :, c] = unew
+            u[:, :, c] = u_new
 
-            if diff_u < tol:
+            if diff_u < tolerance:
                 break
 
     if C == 1:
@@ -92,18 +104,17 @@ def amle(input_matrix, mask_matrix, fidelity, tol, maxiter, dt):
     return u
 
 
-def main(image_filename, mask_filename):
+def main():
     fidelity = 10 ^ 2
-    tol = 1e-8
-    maxiter = 40000
-    dt = 0.01
+    tolrance = 1e-8
+    max_iterations = 100000
+    d_t = 0.01
     cleanfilename = "./dataset/amle_clean.png"
     maskfilename = "./dataset/amle_mask.png"
     input_image, mask = create_image_and_mask(cleanfilename, maskfilename)
     mpimage.imsave("./dataset/amle_input.png", input_image[:, :, 0], cmap="gray")
-    u = amle(input_image, mask, fidelity, tol, maxiter, dt)
+    result = amle_inpainting(input_image, mask, fidelity, tolrance, max_iterations, d_t)
 
 
 if __name__ == "__main__":
-    image_filename, mask_filename = sys.argv[1:]
-    main(image_filename, mask_filename)
+    main()

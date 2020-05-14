@@ -17,14 +17,14 @@ def create_image_and_mask(imagefilename, maskfilename):
     # import the mask of the inpainting domain
     # mask = 1 intact part
     # mask = 0 missing domain
-    mask = scipy.float64((mpimage.imread(maskfilename) == 1))
+    mask = np.float64((mpimage.imread(maskfilename) == 1))
 
     if (input_matrix.ndim == 3) & (mask.ndim < 3):
         mask = np.repeat(mask[:, :, np.newaxis], C, axis=2)
 
     if C == 1:
-        input_matrix = scipy.expand_dims(input_matrix, axis=2)
-        mask = scipy.expand_dims(mask, axis=2)
+        input_matrix = np.expand_dims(input_matrix, axis=2)
+        mask = np.expand_dims(mask, axis=2)
 
     # create the image with the missin domain:
     noise = scipy.rand(M, N, C)
