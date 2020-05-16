@@ -13,25 +13,40 @@ class ImageInpainter(Frame):
         Frame.__init__(self, parent)
         self.parent = parent
         self.color = "green"
-        self.brush_size = 12
+        self.brush_size = IntVar()
         self.setUI()
 
-    def set_color(self, new_color):
-        """Additional brush color change"""
-        self.color = new_color
+    # def set_color(self, new_color):
+    #     """Additional brush color change"""
+    #     self.color = new_color
 
-    def set_brush_size(self, new_size):
-        """Changes brush size for testing different lines width"""
-        self.brush_size = new_size
+    # def set_brush_size(self, new_size):
+    #     """Changes brush size for testing different lines width"""
+    #     self.brush_size = self.scalevar
 
     def draw(self, event):
         """Method to draw"""
-        self.canv.create_oval(event.x - self.brush_size,
-                              event.y - self.brush_size,
-                              event.x + self.brush_size,
-                              event.y + self.brush_size,
+        brush_size = self.brush_size.get()
+        self.canv.create_oval(event.x - brush_size,
+                              event.y - brush_size,
+                              event.x + brush_size,
+                              event.y + brush_size,
                               fill=self.color, outline=self.color)
 
+    def harmonic(self):
+        fidelity = 10
+        tol = 1e-5
+        maxiter = 500
+        dt = 0.1
+        harmonic_inpainting(self.file_path, 'mask.png', 'result.png', fidelity, tol, maxiter, dt)
+
+    def Mumford(self):
+        maxiter = 20
+        tol = 1e-14
+        fidelity = 10 ^ 9
+        alpha = 1
+        gamma = 0.5
+        epsilon = 0.05
 
 
     def save(self):
@@ -47,13 +62,16 @@ class ImageInpainter(Frame):
         img.save('mask.png')
         self.canv.delete("all")
         self.canv.update()
-        fidelity = 10
-        tol = 1e-5
-        maxiter = 500
-        dt = 0.1
-        harmonic_inpainting(self.file_path, 'mask.png', 'result.png', fidelity, tol, maxiter, dt)
+        if self.selected_alg.get() == "Harmonic":
+            self.harmonic()
+        elif self.selected_alg.get() == "Mumford-Shah":
+            pass
+        else:
+            print("else")
+            self.harmonic()
         self.canv.image = ImageTk.PhotoImage(Image.open('result.png'))
         self.canv.create_image(0, 0, image=self.canv.image, anchor="nw")
+        # print("finish putting the image")
 
 
     def setImage(self):
@@ -71,40 +89,30 @@ class ImageInpainter(Frame):
         self.columnconfigure(6, weight=1)
         self.rowconfigure(2, weight=1)
         self.canv = Canvas(self, bg='white')
-        self.canv.grid(row=2, column=0, columnspan=7,
+        self.canv.grid(row=2, column=0, columnspan=10,
                        padx=5, pady=5,
                        sticky=E + W + S + N)
         self.canv.bind("<B1-Motion>",
                        self.draw)
-        color_lab = Label(self, text="Color: ")
-        color_lab.grid(row=0, column=0,
-                       padx=6)
-        black_btn = Button(self, text="Black", width=10,
-                           command=lambda: self.set_color("black"))
-        black_btn.grid(row=0, column=2)
-        white_btn = Button(self, text="White", width=10,
-                           command=lambda: self.set_color("white"))
-        white_btn.grid(row=0, column=3)
         clear_btn = Button(self, text="Clear all", width=10,
                            command=lambda: self.canv.delete("all"))  # "all"
-        clear_btn.grid(row=0, column=4, sticky=W)
+        clear_btn.grid(row=0, column=2, sticky=W)
         file_btn = Button(self, text="File", width=10,
                           command=lambda: self.setImage())
-        file_btn.grid(row=0, column=5, sticky=W)
+        file_btn.grid(row=0, column=1, sticky=W)
         size_lab = Label(self, text="Brush size: ")
-        size_lab.grid(row=1, column=0, padx=5)
-        five_btn = Button(self, text="one", width=10,
-                          command=lambda: self.set_brush_size(1))
-        five_btn.grid(row=1, column=2)
-        seven_btn = Button(self, text="three", width=10,
-                           command=lambda: self.set_brush_size(3))
-        seven_btn.grid(row=1, column=3)
-        ten_btn = Button(self, text="Twenty", width=10,
-                         command=lambda: self.set_brush_size(20))
-        ten_btn.grid(row=1, column=4)
+        size_lab.grid(row=0, column=3, padx=5)
+        brush_scaler = Scale(self, from_=1, to=50, orient=HORIZONTAL, variable=self.brush_size, length=200)
+        brush_scaler.grid(row=0, column=4)
+        algs = ["Harmonic", "AMLE", "Mumford-Shah"]
+        self.selected_alg = StringVar()
+        self.selected_alg.set(algs[0])
+        choose_btn = OptionMenu(self, self.selected_alg, *algs)
+        choose_btn.grid(row=0, column=5)
         done_btn = Button(self, text="Done", width=10,
                           command=lambda: self.save())
-        done_btn.grid(row=1, column=5)
+        done_btn.grid(row=0, column=6)
+
 
 
 def main():
